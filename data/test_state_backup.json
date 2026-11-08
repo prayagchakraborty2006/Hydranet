@@ -1,0 +1,31 @@
+{
+  "hosts": {
+    "AA:AA:AA:AA:AA:01": {
+      "switch": 1,
+      "port": 1
+    },
+    "BB:BB:BB:BB:BB:02": {
+      "switch": 4,
+      "port": 1
+    }
+  },
+  "links": [
+    {"src": 1, "dst": 2},
+    {"src": 1, "dst": 3},
+    {"src": 2, "dst": 4},
+    {"src": 3, "dst": 4}
+  ],
+  "paths": {
+    "AA:AA:AA:AA:AA:01->BB:BB:BB:BB:BB:02": [1, 2, 4]
+  },
+  "port_load_bytes_per_sec": {
+    "1": {
+      "1": 1000
+    },
+    "4": {
+      "1": 1000
+    }
+  },
+  "heavy_threshold": 1000000,
+  "blocked": []
+}
