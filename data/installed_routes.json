@@ -1,0 +1,13 @@
+[
+  {
+    "timestamp": "2026-11-08T09:07:13.912403+00:00",
+    "source": "AA:AA:AA:AA:AA:01",
+    "destination": "BB:BB:BB:BB:BB:02",
+    "path": [
+      1,
+      3,
+      4
+    ],
+    "status": "simulated_installation"
+  }
+]
