@@ -26,6 +26,10 @@ class AIBridge(app_manager.OSKenApp):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.last = {}      # (dpid, port) -> (rx_bytes, tx_bytes, time)
+        self.packet_totals = {
+        "received": 0,
+        "transmitted": 0
+   }
         self.rates = {}     # dpid -> {port: total bytes/sec}
         self.rx = {}        # dpid -> {port: bytes/sec into the switch}
         self.tx = {}        # dpid -> {port: bytes/sec out of the switch}
@@ -216,27 +220,45 @@ class AIBridge(app_manager.OSKenApp):
                     dp.send_msg(dp.ofproto_parser.OFPPortStatsRequest(
                         dp, 0, dp.ofproto.OFPP_ANY))
             hub.sleep(POLL_SECONDS)
-
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply(self, ev):
         dpid = ev.msg.datapath.id
         now = time.time()
+
         for st in ev.msg.body:
             if st.port_no > 0xffffff00:
                 continue
+
             key = (dpid, st.port_no)
+
+            self.packet_totals["received"] += 0
+            self.packet_totals["transmitted"] += 0
+
             if key in self.last:
-                prx, ptx, pt = self.last[key]
+                old = self.last[key]
+                prx, ptx, prxp, ptxp, pt = old
+
                 dt = max(now - pt, 0.001)
+
                 rx = (st.rx_bytes - prx) / dt
                 tx = (st.tx_bytes - ptx) / dt
+
                 self.rx.setdefault(dpid, {})[st.port_no] = round(rx, 1)
                 self.tx.setdefault(dpid, {})[st.port_no] = round(tx, 1)
                 self.rates.setdefault(dpid, {})[st.port_no] = round(rx + tx, 1)
-                if rx + tx > THRESHOLD_BPS:
-                    self.logger.warning("HEAVY TRAFFIC: s%s port %s = %.0f B/s",
-                                        dpid, st.port_no, rx + tx)
-            self.last[key] = (st.rx_bytes, st.tx_bytes, now)
+                rx_packets = max(0, st.rx_packets - prxp)
+                tx_packets = max(0, st.tx_packets - ptxp)
+
+                self.packet_totals["received"] += rx_packets
+                self.packet_totals["transmitted"] += tx_packets
+
+            self.last[key] = (
+                st.rx_bytes,
+                st.tx_bytes,
+                st.rx_packets,
+                st.tx_packets,
+                now
+            )
 
     # ---------- state snapshot ----------
     def build_state(self):
@@ -294,4 +316,5 @@ class AIBridge(app_manager.OSKenApp):
                 "congested_links": congested,
                 "alerts": alerts,
                 "port_load_bytes_per_sec": {str(k): v for k, v in self.rates.items()},
+                "packet_totals": dict(self.packet_totals),
                 "heavy_threshold": THRESHOLD_BPS}

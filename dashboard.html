@@ -1,99 +1,431 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>SDN Dashboard</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hydranet</title>
 <style>
-:root{--bg:#fff;--fg:#1a1a1a;--card:#f4f4f2;--mut:#777;--ok:#1D9E75;--bad:#E24B4A}
-@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--card:#222;--mut:#999}}
-body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif}
-h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 8px}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:12px}
-@media(max-width:800px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card);border-radius:8px;padding:12px;overflow:auto}
-table{width:100%;border-collapse:collapse;font-size:12px}td{padding:3px 4px}
-.mono{font-family:ui-monospace,monospace}
-ul{list-style:none;margin:0;padding:0;max-height:170px;overflow:auto}
-li{padding:2px 0;font-size:12px}
-#st{padding:2px 10px;border-radius:10px;background:var(--ok);color:#fff;font-size:12px}
-.bar{height:6px;border-radius:3px;min-width:2px}
-</style></head><body>
-<div class="top"><h1>SDN Controller Dashboard</h1><span id="st">connecting</span></div>
-<div class="grid">
- <div class="card"><h2>Network topology (green = active path, red = heavy)</h2>
-  <svg id="svg" viewBox="0 0 600 440" width="100%"></svg></div>
- <div>
-  <div class="card" style="margin-bottom:12px"><h2>Hosts</h2><table id="hosts"></table></div>
-  <div class="card"><h2>Current paths</h2><table id="paths"></table></div>
- </div>
+:root{--bg:#e8eef1;--sheet:#f7fafb;--ink:#0f2a3a;--mute:#5b7482;--line:#c9d6dd;--water:#1f7a9c;--ok:#2e9e75;--warn:#d9971a;--bad:#d6453d;
+--sans:"Segoe UI","Avenir Next",system-ui,sans-serif;--serif:Georgia,"Iowan Old Style",serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 48px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:14px;border-bottom:2px solid var(--ink)}
+h1{font:italic 600 34px/1 var(--serif);margin:0;letter-spacing:-.5px}
+h2{font:600 15px/1.3 var(--sans);margin:0 0 10px}
+.conn{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mute)}
+.dot.live{background:var(--ok)}.dot.off{background:var(--bad)}
+.banner{margin:14px 0 0;padding:10px 14px;background:#fbeaea;border-left:4px solid var(--bad);display:none}
+.verdict{margin:18px 0 6px;font:500 24px/1.3 var(--serif);padding-left:16px;border-left:6px solid var(--ok)}
+.verdict.warn{border-color:var(--warn)}.verdict.bad{border-color:var(--bad)}
+.hero{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:22px;margin-top:16px}
+.sheet{background:var(--sheet);border:1px solid var(--line);padding:14px}
+.facts{margin:0;padding:0;list-style:none}
+.facts li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.facts li:last-child{border:0}
+.facts b{font-size:18px;font-weight:600}
+.facts span{color:var(--mute)}
+section{margin-top:26px;padding-top:14px;border-top:1px solid var(--line)}
+.two{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:26px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:600;color:var(--mute);text-align:left;padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+td{padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
+.chip{display:inline-block;padding:1px 9px;border-radius:10px;font-size:12px;background:#dbe7ec;color:var(--ink)}
+.chip.bad{background:var(--bad);color:#fff}.chip.mute{background:#cfd6da;color:#4a5a63}
+.mac{color:var(--mute);font-size:12px}
+ul.log{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
+ul.log li{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+ul.log time{color:var(--mute);font-size:12px;flex:none;padding-top:2px}
+.k{width:8px;height:8px;border-radius:50%;flex:none;margin-top:7px;background:var(--water)}
+.k.warn{background:var(--warn)}.k.bad{background:var(--bad)}.k.ok{background:var(--ok)}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.cmp div{border:1px dashed var(--line);padding:10px}
+.cmp b{display:block;font:600 26px var(--serif)}
+.empty{color:var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:3px;margin-right:5px;vertical-align:middle}
+svg{display:block;width:100%;height:auto}
+.btn{font:600 15px var(--sans);padding:10px 20px;border:0;background:var(--ink);color:#fff;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.st{display:inline-block;padding:2px 12px;border-radius:12px;font-size:12px;font-weight:700;letter-spacing:.04em;background:#dbe7ec}
+.st.ok{background:var(--ok);color:#fff}.st.bad{background:var(--bad);color:#fff}.st.run{background:var(--water);color:#fff}
+dl.kv{display:grid;grid-template-columns:140px 1fr;gap:5px 12px;margin:12px 0 0}dl.kv dt{color:var(--mute)}dl.kv dd{margin:0}
+.flow{animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-28}}
+@media (prefers-reduced-motion:reduce){.flow{animation:none}}
+@media (max-width:860px){.hero,.two{grid-template-columns:1fr}.verdict{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Hydranet</h1>
+  <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">Connecting…</span></div>
+</header>
+<div class="banner" id="banner">The controller is not reachable. Check that <code>osken-manager</code> is running and that this page is served from port 8080. Add <code>?demo</code> to the address to preview with sample data.</div>
+
+<p class="verdict" id="verdict" aria-live="polite">Waiting for the first reading…</p>
+
+<div class="hero">
+  <div class="sheet"><h2>Network map</h2><div id="topo"></div>
+    <div class="legend"><span><i style="background:var(--water)"></i>Normal load</span><span><i style="background:var(--warn)"></i>Over half the limit</span><span><i style="background:var(--bad)"></i>Over the limit</span><span><i style="background:var(--bad);border-top:2px dashed var(--bad);height:0"></i>Link down</span><span><i style="background:#7b5ea7;height:8px;opacity:.5"></i>AI reroute</span></div>
+  </div>
+  <div class="sheet"><h2>At a glance</h2><ul class="facts" id="facts"></ul></div>
 </div>
-<div class="grid">
- <div class="card"><h2>Port load</h2><table id="load"></table></div>
- <div>
-  <div class="card" style="margin-bottom:12px"><h2>Network changes</h2><ul id="notes"></ul></div>
-  <div class="card"><h2>Rules from LLM / validator</h2><ul id="events"></ul></div>
- </div>
+
+<section>
+  <h2>Traffic on each link</h2>
+  <div id="chart"></div>
+</section>
+
+<section class="two">
+  <div>
+    <h2>Hosts</h2>
+    <table><thead><tr><th>Host</th><th>Attached to</th><th>Sending</th><th>Receiving</th><th>Status</th></tr></thead><tbody id="hosts"></tbody></table>
+    <h2 style="margin-top:22px">Routes</h2>
+    <table><thead><tr><th>From → to</th><th>Path</th></tr></thead><tbody id="paths"></tbody></table>
+  </div>
+  <div>
+    <h2>What changed</h2>
+    <ul class="log" id="log"></ul>
+  </div>
+</section>
+
+<section>
+  <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><h2 style="margin:0">AI analysis</h2><button class="btn" id="runBtn">RUN AI ANALYSIS</button><span class="st" id="aiSt">NOT RUN YET</span></div>
+  <div id="aiRes"></div>
+</section>
+
+<section class="two">
+  <div>
+    <h2>Rules from the LLM and validator</h2>
+    <div id="ai"></div>
+  </div>
+  <div>
+    <h2>With and without the LLM</h2>
+    <div class="cmp" id="cmp"></div>
+  </div>
+</section>
 </div>
+
 <script>
-const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const short=m=>m.slice(-8);
-let prev=null,notes=[];
-const note=t=>{notes.unshift(new Date().toLocaleTimeString()+'  '+t);notes=notes.slice(0,50)};
+// Fill these in from scenario_attack.py (packet loss %, scenario A = agent off, C = agent on).
+const RESULTS = { without: null, with: null };
 
-function draw(s){
- const sw=s.switches,n=sw.length,cx=300,cy=230,R=110,pos={};
- sw.forEach((id,i)=>{const a=2*Math.PI*i/n-Math.PI/2;pos[id]={x:cx+R*Math.cos(a),y:cy+R*Math.sin(a),a}});
- const onPath=new Set();
- Object.values(s.paths).forEach(p=>p&&p.slice(1).forEach((b,i)=>onPath.add([p[i],b].sort().join('-'))));
- const rates=s.port_load_bytes_per_sec;
- let h='';
- s.links.forEach(l=>{
-  const a=pos[l.src],b=pos[l.dst];if(!a||!b)return;
-  const r=Math.max((rates[l.src]||{})[l.src_port]||0,(rates[l.dst]||{})[l.dst_port]||0);
-  const heavy=r>s.heavy_threshold,on=onPath.has([l.src,l.dst].sort().join('-'));
-  h+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${heavy?'#E24B4A':on?'#1D9E75':'#999'}" stroke-width="${on?4:2}"/>`;
- });
- Object.entries(s.hosts).forEach(([m,l])=>{
-  const p=pos[l.switch];if(!p)return;
-  const x=p.x+75*Math.cos(p.a),y=p.y+75*Math.sin(p.a);
-  h+=`<line x1="${p.x}" y1="${p.y}" x2="${x}" y2="${y}" stroke="#999" stroke-dasharray="4"/>
-  <rect x="${x-30}" y="${y-12}" width="60" height="24" rx="5" fill="${s.blocked.includes(m)?'#E24B4A':'#378ADD'}"/>
-  <text x="${x}" y="${y+4}" text-anchor="middle" fill="#fff" font-size="10">${short(m)}</text>`;
- });
- sw.forEach(id=>{const p=pos[id];
-  h+=`<circle cx="${p.x}" cy="${p.y}" r="18" fill="#7F77DD"/><text x="${p.x}" y="${p.y+4}" text-anchor="middle" fill="#fff" font-size="12">s${id}</text>`});
- $('svg').innerHTML=h;
+const q = new URLSearchParams(location.search);
+const API = q.get('api') || '';          // same origin by default
+const DEMO = q.has('demo');
+const POLL_MS = 2000, KEEP = 60;
+const COLORS = ['#1f7a9c', '#2e9e75', '#7b5ea7', '#c77d1a', '#b2476b', '#4a6572'];
 
- $('hosts').innerHTML=Object.entries(s.hosts).map(([m,l])=>
-  `<tr><td class="mono">${m}</td><td>s${l.switch}:${l.port}</td><td>${s.blocked.includes(m)?'BLOCKED':''}</td></tr>`).join('')
-  ||'<tr><td>none yet - run h1 ping h2 in Mininet</td></tr>';
- $('paths').innerHTML=Object.entries(s.paths).map(([k,p])=>
-  `<tr><td class="mono">${k.split('->').map(short).join(' → ')}</td><td>${p?p.map(x=>'s'+x).join(' → '):'no path'}</td></tr>`).join('');
- $('load').innerHTML=Object.entries(rates).flatMap(([d,ps])=>Object.entries(ps).map(([p,r])=>
-  `<tr><td>s${d}:${p}</td><td style="width:55%"><div class="bar" style="width:${Math.min(100,r/s.heavy_threshold*100)}%;background:${r>s.heavy_threshold?'#E24B4A':'#1D9E75'}"></div></td><td>${Math.round(r)} B/s</td></tr>`)).join('');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const key = (a, b) => a < b ? a + '-' + b : b + '-' + a;
+const dash = k => k.replace('-', '–');
+const rate = v => v < 1e3 ? v.toFixed(0) + ' B/s' : v < 1e6 ? (v / 1e3).toFixed(1) + ' KB/s' : (v / 1e6).toFixed(2) + ' MB/s';
+const txt = x => typeof x === 'string' ? x : (x && (x.message || x.msg || x.description)) || JSON.stringify(x);
+const pathTxt = p => p.map(n => 's' + n).join(' → ');
 
- const key={l:s.links.length,p:JSON.stringify(s.paths),b:s.blocked.join()};
- if(prev){
-  if(key.l!==prev.l)note(`links: ${prev.l} → ${key.l}`);
-  if(key.p!==prev.p)note('paths changed');
-  if(key.b!==prev.b)note('blocked list changed');
- }
- prev=key;
- $('notes').innerHTML=notes.map(x=>`<li>${esc(x)}</li>`).join('')||'<li style="color:var(--mut)">no changes yet</li>';
+const known = new Map();      // every link ever seen, so a missing one shows as down
+const downSet = new Set();
+const hist = [];              // {t, loads, rx}
+const log = [];
+const seen = new Set();
+let prev = null, fails = 0, tick = 0;
+const T0 = Math.floor(Date.now() / 1000);
+const AI_API = q.get('ai') || '/ai';
+let aiStat = null, aiDown = false, aiBusy = false, aiLastRun = null, lastNames = {};
+let rerouteEdges = new Set(), reroutePath = null;
+
+let rules = [];               // rows from /events: {t, ok, rule, msg}
+function addLog(kind, text, when) {
+  log.unshift({ t: when || new Date(), kind, text });
+  if (log.length > 60) log.pop();
 }
 
-function drawEvents(e){
- $('events').innerHTML=e.slice().reverse().map(x=>
-  `<li style="color:${x.ok?'var(--ok)':'var(--bad)'}">${new Date(x.t*1000).toLocaleTimeString()}  ${x.ok?'ACCEPTED':'REJECTED'}  ${esc(x.rule)} — ${esc(x.msg)}</li>`).join('')
-  ||'<li style="color:var(--mut)">no rules received yet</li>';
+async function get(path) {
+  const c = new AbortController(), to = setTimeout(() => c.abort(), 1500);
+  try {
+    const r = await fetch(API + path, { signal: c.signal });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } finally { clearTimeout(to); }
 }
 
-async function tick(){
- try{
-  const [s,e]=await Promise.all([fetch('/state').then(r=>r.json()),fetch('/events').then(r=>r.json())]);
-  if(s.error)throw 0;
-  draw(s);drawEvents(e);
-  $('st').textContent='live';$('st').style.background='';
- }catch(x){$('st').textContent='controller unreachable';$('st').style.background='#E24B4A'}
+function hostNames(s) {
+  const macs = Object.keys(s.hosts || {}).sort((a, b) => (s.hosts[a].switch - s.hosts[b].switch) || (a < b ? -1 : 1));
+  const m = {};
+  macs.forEach((mac, i) => m[mac] = 'h' + (i + 1));
+  return m;
 }
-tick();setInterval(tick,2000);
-</script></body></html>
+const lbl = (x, names) => typeof x === 'string' ? (names[x] || x) : (x && (names[x.mac] || names[x.host] || x.host || x.mac)) || txt(x);
+const has = (list, mac) => (list || []).some(x => JSON.stringify(x).toLowerCase().includes(mac.toLowerCase()));
+
+function derive(s, names) {
+  const cur = new Set((s.links || []).map(l => key(l.src, l.dst)));
+  (s.links || []).forEach(l => known.set(key(l.src, l.dst), [l.src, l.dst]));
+  for (const k of known.keys()) {
+    if (!cur.has(k) && !downSet.has(k)) { downSet.add(k); if (prev) addLog('bad', `Link ${dash(k)} went down.`); }
+    if (cur.has(k) && downSet.has(k)) { downSet.delete(k); addLog('ok', `Link ${dash(k)} is back up.`); }
+  }
+  if (prev) {
+    for (const [pk, p] of Object.entries(s.paths || {})) {
+      const old = (prev.paths || {})[pk];
+      if (old && JSON.stringify(old) !== JSON.stringify(p)) {
+        const [a, b] = pk.split('->');
+        addLog('warn', `Route ${names[a] || 'host'} → ${names[b] || 'host'} moved to ${pathTxt(p)}.`);
+      }
+    }
+    if (JSON.stringify(prev.blocked || []) !== JSON.stringify(s.blocked || []))
+      addLog('bad', `Blocked hosts: ${(s.blocked || []).map(b => lbl(b, names)).join(', ') || 'none'}.`);
+  }
+  (s.alerts || []).forEach(a => { const t = txt(a); if (!seen.has('a' + t)) { seen.add('a' + t); addLog('bad', t); } });
+}
+
+// Mininet gives hosts new MACs on every start: keep only the newest host per switch port.
+function dropStaleHosts(s) {
+  const byPort = {};
+  Object.entries(s.hosts || {}).forEach(([m, h]) => { byPort[h.switch + ':' + h.port] = m; });
+  const live = new Set(Object.values(byPort));
+  const only = o => Object.fromEntries(Object.entries(o || {}).filter(([k]) => live.has(k)));
+  s.hosts = only(s.hosts);
+  s.host_traffic = only(s.host_traffic);
+  s.paths = Object.fromEntries(Object.entries(s.paths || {}).filter(([k]) => k.split('->').every(m => live.has(m))));
+  s.heavy_hosts = (s.heavy_hosts || []).filter(m => live.has(m));
+}
+
+function update(s, events) {
+  dropStaleHosts(s);
+  const names = hostNames(s);
+  derive(s, names);
+  rules = events;
+  reroutePath = null;
+  events.forEach(e => { try { const r = JSON.parse(e.rule); if (e.ok && r.action === 'reroute' && s.hosts[r.src_mac] && s.hosts[r.dst_mac]) reroutePath = r; } catch (x) {} });
+  rerouteEdges = new Set();
+  if (reroutePath) for (let i = 0; i < reroutePath.path.length - 1; i++) rerouteEdges.add(key(reroutePath.path[i], reroutePath.path[i + 1]));
+  events.forEach(e => {
+    const id = 'e' + JSON.stringify(e);
+    if (seen.has(id)) return;
+    seen.add(id);
+    addLog(e.ok ? 'ok' : 'bad', `Rule “${e.rule}” ${e.ok ? 'accepted' : 'rejected'}: ${e.msg}`, e.t ? new Date(e.t * 1000) : null);
+  });
+
+  const loads = {};
+  (s.link_load || []).forEach(l => { const [a, b] = l.link.split('-').map(Number); loads[key(a, b)] = l.bytes_per_sec; });
+  hist.push({ t: Date.now(), loads, rx: (s.packet_totals || {}).received || 0 });
+  if (hist.length > KEEP) hist.shift();
+
+  prev = s;
+  setConn(true);
+  render(s, names, loads);
+}
+
+function setConn(ok) {
+  $('dot').className = 'dot ' + (ok ? 'live' : 'off');
+  $('connTxt').textContent = ok ? (DEMO ? 'Sample data' : 'Live, updating every 2 seconds') : 'Controller not reachable';
+  $('banner').style.display = (!ok && fails >= 3) ? 'block' : 'none';
+}
+
+function render(s, names, loads) {
+  const thr = s.heavy_threshold || 100000;
+  const pathEdges = new Set();
+  Object.values(s.paths || {}).forEach(p => { for (let i = 0; i < p.length - 1; i++) pathEdges.add(key(p[i], p[i + 1])); });
+
+  // verdict
+  const heavy = s.heavy_hosts || [], al = s.alerts || [], cong = s.congested_links || [];
+  const first = Object.values(s.paths || {})[0];
+  let cls = '', msg = 'All links are up and traffic is normal.';
+  if (heavy.length) { cls = 'bad'; msg = `${heavy.map(h => lbl(h, names)).join(', ')} ${heavy.length > 1 ? 'are' : 'is'} sending more than the ${rate(thr)} limit.`; }
+  else if (al.length || cong.length) { cls = 'bad'; msg = al.length ? txt(al[0]) : `Congestion on ${cong.map(c => dash(txt(c))).join(', ')}.`; }
+  else if (downSet.size) { cls = 'warn'; msg = `Link ${[...downSet].map(dash).join(', ')} is down.` + (first ? ` Traffic now goes ${pathTxt(first)}.` : ''); }
+  $('verdict').className = 'verdict ' + cls;
+  $('verdict').textContent = msg + (reroutePath ? ` AI reroute is active via ${pathTxt(reroutePath.path)}.` : '');
+
+  // facts
+  const up = known.size - downSet.size, pt = s.packet_totals || {};
+  let pps = 0;
+  if (hist.length > 1) { const a = hist[hist.length - 2], b = hist[hist.length - 1]; pps = Math.max(0, (b.rx - a.rx) / ((b.t - a.t) / 1000)); }
+  $('facts').innerHTML = [
+    ['Switches online', (s.switches || []).length],
+    ['Links up', `${up} of ${known.size}`],
+    ['Hosts', Object.keys(s.hosts || {}).length],
+    ['Packets received', (pt.received || 0).toLocaleString()],
+    ['Packets sent', (pt.transmitted || 0).toLocaleString()],
+    ['Packet rate', pps.toFixed(0) + ' /s'],
+    ['Heavy-traffic limit', rate(thr)]
+  ].map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
+
+  $('topo').innerHTML = topo(s, names, loads, pathEdges, thr);
+  $('chart').innerHTML = chart(thr);
+
+  // hosts
+  $('hosts').innerHTML = Object.entries(s.hosts || {}).map(([mac, h]) => {
+    const t = (s.host_traffic || {})[mac] || {};
+    const isBlocked = has(s.blocked, mac), isHeavy = has(heavy, mac);
+    const chip = isBlocked ? '<span class="chip mute">Blocked</span>' : isHeavy ? '<span class="chip bad">Heavy traffic</span>' : '<span class="chip">Normal</span>';
+    return `<tr><td><b>${esc(names[mac])}</b><div class="mac">${esc(mac)}</div></td><td>s${h.switch}, port ${h.port}</td><td>${rate(t.sent_bps || 0)}</td><td>${rate(t.recv_bps || 0)}</td><td>${chip}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">No hosts discovered yet. Send a ping in Mininet.</td></tr>';
+
+  $('paths').innerHTML = rerouteRow(names) + Object.entries(s.paths || {}).map(([pk, p]) => {
+    const [a, b] = pk.split('->');
+    return `<tr><td>${esc(names[a] || a)} → ${esc(names[b] || b)}</td><td>${pathTxt(p)}</td></tr>`;
+  }).join('') || '<tr><td colspan="2" class="empty">No routes yet.</td></tr>';
+
+  $('log').innerHTML = log.map(e => `<li><time>${e.t.toLocaleTimeString()}</time><span class="k ${e.kind}"></span><span>${esc(e.text)}</span></li>`).join('')
+    || '<li class="empty">Nothing has changed since this page opened.</li>';
+
+  // AI panel (real data: blocked hosts; decisions wait for api_server.py wiring)
+  lastNames = names; renderAI();
+  const bl = (s.blocked || []).map(b => lbl(b, names));
+  $('ai').innerHTML = `<p style="margin:0 0 8px">${bl.length ? 'Blocked hosts: <b>' + esc(bl.join(', ')) + '</b>' : 'No hosts are blocked.'}</p>
+    <ul class="log">${rules.slice().reverse().map(e => `<li><time>${new Date(e.t * 1000).toLocaleTimeString()}</time><span class="chip ${e.ok ? '' : 'bad'}">${e.ok ? 'Accepted' : 'Rejected'}</span><span>${esc(e.rule)}: ${esc(e.msg)}</span></li>`).join('')
+      || '<li class="empty">No rules received yet. Rules the LLM sends through the validator will appear here.</li>'}</ul>`;
+  const cell = (label, v) => `<div>${label}<b>${v == null ? '–' : v + '%'}</b>${v == null ? '<span class="empty">Not measured yet</span>' : 'packet loss'}</div>`;
+  $('cmp').innerHTML = cell('Without the LLM', RESULTS.without) + cell('With the LLM', RESULTS.with);
+}
+
+function rerouteRow(names) {
+  if (!reroutePath) return '';
+  return `<tr><td><span class="chip">AI reroute</span> ${esc(names[reroutePath.src_mac] || '')} → ${esc(names[reroutePath.dst_mac] || '')}</td><td>${pathTxt(reroutePath.path)}</td></tr>`;
+}
+
+function aiLabel(a, c) {
+  const d = a.decision || {};
+  if (a.status === 'error') return ['ERROR', 'bad'];
+  if (a.status !== 'accepted') return ['REJECTED', 'bad'];
+  if (d.action === 'none') return ['NO ACTION NEEDED', 'ok'];
+  if (c && c.ok) return ['APPLIED', 'ok'];
+  if (c && c.unreachable) return ['CONTROLLER UNREACHABLE', 'bad'];
+  return ['CONTROLLER REJECTED', 'bad'];
+}
+
+function renderAI() {
+  const st = $('aiSt'), box = $('aiRes'), n = lastNames || {};
+  const set = (cls, t) => { st.className = 'st ' + cls; st.textContent = t; };
+  const running = aiBusy || !!(aiStat && aiStat.running);
+  $('runBtn').disabled = DEMO || aiDown || running;
+  $('runBtn').title = DEMO ? 'Not available in sample mode' : '';
+  if (aiDown) { set('bad', 'AI SERVICE UNREACHABLE'); box.innerHTML = '<p class="empty">The Flask API on port 5000 is not responding. Start <code>python3 api_server.py</code>.</p>'; return; }
+  if (running) { set('run', 'ANALYZING'); box.innerHTML = '<p class="empty">The LLM is reading the network state. This can take a minute.</p>'; return; }
+  const a = aiStat && aiStat.ai_result, c = aiStat && aiStat.controller_result;
+  if (!a) { set('', 'NOT RUN YET'); box.innerHTML = '<p class="empty">Press the button to send the current network state through the LLM and the validator.</p>'; return; }
+  const d = a.decision || {}, [label, cls] = aiLabel(a, c);
+  set(cls, label);
+  const rej = a.rejections && a.rejections.length ? '<ul class="log">' + a.rejections.map(r => `<li><span class="k bad"></span><span>Rejected: ${esc(r)}</span></li>`).join('') + '</ul>'
+    : (a.attempts > 1 ? `Attempt 1 was rejected by the validator; attempt ${a.attempts} passed.` : 'Passed on the first attempt.');
+  const ctrl = !c ? 'Nothing sent.' : c.attempted === false ? 'Nothing sent. ' + esc(c.message) : (c.ok ? 'Accepted: ' : c.unreachable ? '' : 'Rejected: ') + esc(c.message);
+  const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  box.innerHTML = '<dl class="kv">' +
+    row('Action', esc(d.action || 'none')) +
+    (d.src_mac ? row('From → to', esc(n[d.src_mac] || d.src_mac) + ' → ' + esc(n[d.dst_mac] || d.dst_mac)) : '') +
+    (d.path ? row('Path', pathTxt(d.path)) : '') +
+    row('Reason', esc(a.reason || '–')) +
+    row('Validator', (a.validated ? 'Accepted' : 'Rejected') + ' after ' + (a.attempts || 1) + ' attempt' + ((a.attempts || 1) > 1 ? 's' : '') + ': ' + esc(a.message)) +
+    row('Retries', rej) +
+    row('Controller', ctrl) +
+    row('Run at', new Date(aiStat.last_run * 1000).toLocaleTimeString()) + '</dl>';
+}
+
+async function pollAI() {
+  try { aiStat = await (await fetch(AI_API + '/status')).json(); aiDown = false; } catch (e) { aiDown = true; }
+  if (aiStat && aiStat.last_run && aiStat.last_run !== aiLastRun && aiStat.ai_result) {
+    aiLastRun = aiStat.last_run;
+    const [label, cls] = aiLabel(aiStat.ai_result, aiStat.controller_result);
+    addLog(cls, 'AI analysis: ' + label, new Date(aiStat.last_run * 1000));
+  }
+  renderAI();
+}
+$('runBtn').onclick = async () => {
+  aiBusy = true; renderAI();
+  try { await fetch(AI_API + '/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch (e) { aiDown = true; }
+  aiBusy = false; await pollAI(); poll();
+};
+
+function topo(s, names, loads, pathEdges, thr) {
+  const sw = s.switches || [];
+  const P = { 1: [110, 150], 2: [270, 45], 3: [270, 255], 4: [430, 150] };
+  let pos = {};
+  if (sw.length === 4 && sw.every(x => P[x])) pos = P;
+  else sw.forEach((id, i) => { const a = 2 * Math.PI * i / sw.length - Math.PI / 2; pos[id] = [270 + 150 * Math.cos(a), 150 + 100 * Math.sin(a)]; });
+  let out = '<svg viewBox="0 0 540 300" role="img" aria-label="Network map">';
+  for (const [k, [a, b]] of known) {
+    if (!pos[a] || !pos[b]) continue;
+    const [x1, y1] = pos[a], [x2, y2] = pos[b], down = downSet.has(k), v = loads[k] || 0, r = v / thr;
+    if (rerouteEdges.has(k) && !down) out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#7b5ea7" stroke-width="14" stroke-linecap="round" opacity=".3"/>`;
+    const col = down ? '#d6453d' : r > 1 ? '#d6453d' : r > .5 ? '#d9971a' : '#1f7a9c';
+    out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${down ? 2 : 6}" ${down ? 'stroke-dasharray="6 6"' : ''} stroke-linecap="round" opacity="${down ? 1 : .85}"/>`;
+    if (!down && (rerouteEdges.size ? rerouteEdges : pathEdges).has(k)) out += `<line class="flow" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="2.5" stroke-dasharray="2 12" stroke-linecap="round"/>`;
+    out += `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 10}" text-anchor="middle" font-size="12" fill="#0f2a3a" style="paint-order:stroke;stroke:#f7fafb;stroke-width:4px">${down ? 'down' : rate(v)}</text>`;
+  }
+  Object.entries(s.hosts || {}).forEach(([mac, h]) => {
+    const p = pos[h.switch]; if (!p) return;
+    let dx = p[0] - 270, dy = p[1] - 150; const n = Math.hypot(dx, dy) || 1;
+    const x = Math.min(515, Math.max(25, p[0] + dx / n * 80)), y = Math.min(280, Math.max(20, p[1] + dy / n * 80));
+    const heavy = has(s.heavy_hosts, mac), blocked = has(s.blocked, mac);
+    const st = blocked ? '#7a8a93' : heavy ? '#d6453d' : '#1f7a9c';
+    out += `<line x1="${p[0]}" y1="${p[1]}" x2="${x}" y2="${y}" stroke="#9db0ba" stroke-width="2"/>
+      <circle cx="${x}" cy="${y}" r="17" fill="#fff" stroke="${st}" stroke-width="3"/>
+      <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="14" font-weight="600" fill="#0f2a3a">${esc(names[mac])}</text>`;
+  });
+  sw.forEach(id => { const p = pos[id]; if (!p) return;
+    out += `<circle cx="${p[0]}" cy="${p[1]}" r="22" fill="#0f2a3a"/><text x="${p[0]}" y="${p[1] + 5}" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">s${id}</text>`; });
+  return out + '</svg>';
+}
+
+function chart(thr) {
+  const W = 700, H = 170, L = 52, B = 22, T = 8;
+  const keys = [...known.keys()];
+  let max = thr * 1.2;
+  hist.forEach(h => keys.forEach(k => { if ((h.loads[k] || 0) > max) max = h.loads[k]; }));
+  const X = i => L + (hist.length < 2 ? 0 : i * (W - L - 8) / (KEEP - 1) + (KEEP - hist.length) * (W - L - 8) / (KEEP - 1));
+  const Y = v => T + (H - T - B) * (1 - v / max);
+  let out = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Traffic per link over the last two minutes">`;
+  out += `<line x1="${L}" y1="${Y(0)}" x2="${W - 8}" y2="${Y(0)}" stroke="#c9d6dd"/><text x="${L - 6}" y="${Y(0) + 4}" text-anchor="end" font-size="11" fill="#5b7482">0</text>`;
+  out += `<line x1="${L}" y1="${Y(thr)}" x2="${W - 8}" y2="${Y(thr)}" stroke="#d6453d" stroke-dasharray="4 4"/><text x="${L - 6}" y="${Y(thr) + 4}" text-anchor="end" font-size="11" fill="#d6453d">${rate(thr)}</text>`;
+  keys.forEach((k, i) => {
+    const pts = hist.map((h, j) => `${X(j).toFixed(1)},${Y(h.loads[k] || 0).toFixed(1)}`).join(' ');
+    out += `<polyline points="${pts}" fill="none" stroke="${COLORS[i % COLORS.length]}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  });
+  out += '</svg><div class="legend">' + keys.map((k, i) => `<span><i style="background:${COLORS[i % COLORS.length]}"></i>Link ${dash(k)}${downSet.has(k) ? ' (down)' : ''}</span>`).join('') + '<span>Dashed line: heavy-traffic limit</span></div>';
+  return out;
+}
+
+// Sample data so the page can be built and demoed without the controller (?demo)
+function demo(n) {
+  const ph = n % 40, m1 = 'f2:8e:e0:3b:70:d6', m2 = 'b2:8d:c8:6b:95:bf';
+  const L = [[1, 2, 2, 1], [1, 3, 3, 1], [4, 2, 2, 2], [4, 3, 3, 2]];
+  const down = ph >= 10 && ph < 20, flood = ph >= 30;
+  const links = L.filter(l => !(down && l[0] === 1 && l[1] === 2)).map(l => ({ src: l[0], dst: l[1], src_port: l[2], dst_port: l[3] }));
+  const path = down ? [1, 3, 4] : [1, 2, 4], onPath = down ? ['1-3', '3-4'] : ['1-2', '2-4'];
+  const base = flood ? 5e6 : 12000 + Math.random() * 6000;
+  const load = ['1-2', '1-3', '4-2', '4-3'].map(k => ({ link: k, bytes_per_sec: onPath.includes(key(...k.split('-').map(Number))) ? base : 0 }));
+  const pk = 336 + n * 60 + (flood ? (ph - 29) * 4000 : 0);
+  return {
+    switches: [1, 2, 3, 4], links, hosts: { [m1]: { switch: 1, port: 1 }, [m2]: { switch: 4, port: 1 } },
+    paths: { [m1 + '->' + m2]: path, [m2 + '->' + m1]: [...path].reverse() }, blocked: [],
+    host_traffic: { [m1]: { sent_bps: base, recv_bps: 9000 }, [m2]: { sent_bps: 9000, recv_bps: base } },
+    link_load: load, heavy_hosts: flood ? [m1] : [], congested_links: flood ? [onPath[0]] : [],
+    alerts: flood ? ['Host ' + m1 + ' is over the traffic limit'] : [],
+    packet_totals: { received: pk, transmitted: pk }, heavy_threshold: 100000
+  };
+}
+
+async function poll() {
+  try {
+    const s = DEMO ? demo(tick++) : await get('/state');
+    if (s.error) throw new Error(s.error);
+    let ev = [];
+    if (DEMO) { if (tick % 40 > 32 || tick % 40 === 0) ev = [{ t: T0 + Math.floor((tick - 1) / 40) * 80 + 64, ok: true, rule: 'block h1', msg: 'accepted by validator' }]; }
+    else { try { ev = await get('/events'); } catch (e) {} }
+    fails = 0;
+    update(s, Array.isArray(ev) ? ev : []);
+  } catch (e) { fails++; setConn(false); }
+}
+poll();
+setInterval(poll, POLL_MS);
+pollAI();
+setInterval(pollAI, POLL_MS);
+</script>
+</body>
+</html>

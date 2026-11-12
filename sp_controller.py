@@ -26,6 +26,7 @@ class ShortestPathSwitch(app_manager.OSKenApp):
         dp = ev.msg.datapath
         ofp, parser = dp.ofproto, dp.ofproto_parser
         self.datapaths[dp.id] = dp
+        self.G.add_node(dp.id)
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER,
                                           ofp.OFPCML_NO_BUFFER)]
@@ -113,7 +114,12 @@ class ShortestPathSwitch(app_manager.OSKenApp):
 
         # learn host location only on host-facing ports
         if in_port not in self.link_ports.get(dp.id, set()):
-            if src not in self.hosts:
+            if self.hosts.get(src) != (dp.id, in_port):
+                # one host per host-facing port: forget any older MAC on this port
+                for old, loc in list(self.hosts.items()):
+                    if loc == (dp.id, in_port) and old != src:
+                        del self.hosts[old]
+                        self.logger.info("HOST forgotten (replaced by %s): %s", src, old)
                 self.hosts[src] = (dp.id, in_port)
                 self.logger.info("HOST learned: %s at s%s port %s",
                                  src, dp.id, in_port)

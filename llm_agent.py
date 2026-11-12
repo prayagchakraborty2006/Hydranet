@@ -130,6 +130,15 @@ def validate(rule, state):
 
     if action == "none":
 
+        heavy_hosts = state.get("heavy_hosts", [])
+
+        if heavy_hosts:
+            return False, (
+                "Heavy traffic detected on these hosts: "
+                f"{heavy_hosts}. "
+                "Action 'none' is invalid. Choose a valid reroute."
+            )
+
         return True, "no action needed"
 
 
